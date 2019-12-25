@@ -220,11 +220,16 @@ def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000,
     Returns:
         best_formula: RecursiveFormula
             fitted formula
+        best_losses: list of float
+        	loss values for best initialization
     """
     
     best_formula = RecursiveFormula(depth, X.shape[1]).to(device)
     best_loss = 1e20
+    best_losses = []
+    
     for init in range(n_init):
+        losses = []
         if verbose > 0:
             print("Run #{}".format(init + 1))
     #     torch.random.manual_seed(seed)
@@ -241,6 +246,7 @@ def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000,
             optimizer.zero_grad()
             output = formula(X)
             loss = criterion(output, y)
+            losses.append(loss.item())
             loss.backward()
             if verbose == 2 and (epoch + 1) % verbose_frequency == 0:
                 print("Epoch {}, current loss {:.3}, current formula ".format(epoch + 1, loss.item()), end='')
@@ -258,6 +264,7 @@ def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000,
         if loss < best_loss:
             best_loss = loss
             best_formula = formula
+            best_losses = losses
         if verbose > 0:
             print("Finished run #{}, loss {}, best loss {}".format(init + 1, loss, best_loss))
-    return best_formula
+    return best_formula, best_losses
