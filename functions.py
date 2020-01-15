@@ -1,4 +1,5 @@
 import torch
+from IPython.core.display import display, HTML, Math
 
 def descriptive_length_of_fraction(numerator, denominator):
     return torch.log2((1 + torch.abs(torch.tensor(denominator))) * torch.abs(torch.tensor(numerator)))
