@@ -188,11 +188,11 @@ class RecursiveFormula(nn.Module):
         return ans
     
     
-def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000, 
+def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.device("cpu"), n_init=10, max_iter=10000, 
              lr=0.01,
              depth=1, verbose=2, verbose_frequency=5000, 
              max_epochs_without_improvement=300,
-            minimal_acceptable_improvement=1e-5, use_swa=False) -> RecursiveFormula:
+            minimal_acceptable_improvement=1e-5, max_tol=1e-3,use_swa=False) -> RecursiveFormula:
     """
     Parameters:
         X: torch.tensor, shape (n_samples, n_features)
@@ -218,6 +218,8 @@ def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000,
         minimal_acceptable_improvement: float
             if during max_epochs_without_improvement number of epochs loss does not decrease more than this number, 
             the learning process will be finished
+        max_tol: float
+        	if the loss becomes smaller than this value, stop performing initializations and finish the learning process
             
     Returns:
         best_formula: RecursiveFormula
@@ -233,7 +235,7 @@ def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000,
     for init in range(n_init):
         losses = []
         if verbose > 0:
-            print("\t\tInitiation #{}".format(init + 1))
+            print("  Initialization #{}".format(init + 1))
     #     torch.random.manual_seed(seed)
         model = RecursiveFormula(depth, X.shape[1]).to(device)
         
@@ -257,7 +259,7 @@ def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000,
             losses.append(loss.item())
             loss.backward()
             if verbose == 2 and (epoch + 1) % verbose_frequency == 0:
-                print("\t\tEpoch {}, current loss {:.3}, current formula ".format(epoch + 1, loss.item()), end='')
+                print("    Epoch {}, current loss {:.3}, current formula ".format(epoch + 1, loss.item()), end='')
                 PrintFormula(model, "fast")       
             optimizer.step()  
             epoch += 1
@@ -267,15 +269,18 @@ def LearnFormula(X, y, optimizer_for_formula, device, n_init=10, max_iter=10000,
                 epochs_without_improvement = 0
             previous_loss = loss.item()
             if epoch == 1000 and loss > 1e5:
-                print("\t\tThe model does not seem to converge, finishing at epoch 1000")
+                print("  The model does not seem to converge, finishing at epoch 1000")
                 epoch = max_iter
         if loss < best_loss:
             best_loss = loss
             best_formula = model
             best_losses = losses
         if verbose > 0:
-            print("\t\tFinished run #{}, loss {}, best loss {}".format(init + 1, loss, best_loss))
+            print("  Finished run #{}, loss {}, best loss {}".format(init + 1, loss, best_loss))
         if use_swa:
 	        optimizer.swap_swa_sgd()
+        if loss < max_tol:
+            print(f'loss is smaller than {max_tol}, terminating learning process')
+            break
         
     return best_formula, best_losses

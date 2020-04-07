@@ -20,7 +20,7 @@ def FormFractionRepresentation(fraction: torch.tensor) -> str:
 
 
 def FormReal(number: torch.tensor) -> str:
-    return "{:.3}".format(number.item())
+    return "{:.3f}".format(number.item())
 
 
 def AddRationalInName(name: str) -> str:
@@ -41,4 +41,7 @@ def PrintFormula(formula, mode="slow"):
         display(Math(str(formula)))   
     else:
         print(formula)
+
         
+def remove_zero_minutes(minutes):
+    return str(int(minutes)) + ' minutes ' if minutes > 0 else ''        
