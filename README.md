@@ -1,2 +1,4 @@
-# LearningFormulas
+# NestedFormula
 Recover functional dependencies from data using computational graph and simplification.
+
+
