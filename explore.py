@@ -29,9 +29,9 @@ def print_time(cnt, cnt_iteration):
     print(f"the iteration took {auxiliary_functions.remove_zero_minutes(min_iteration)}{sec_iteration :.0f} seconds")
 
     
-def get_params(regressor):
-    lambdas = [regressor.get_lambda(i).item() for i in range(3)]
-    powers = [regressor.get_power(i).item() for i in range(3)]
+def get_params(regressor, n_variables):
+    lambdas = [regressor.get_lambda(i).item() for i in range(n_variables)]
+    powers = [regressor.get_power(i).item() for i in range(n_variables)]
     bias_term = [regressor.last_subformula.lambda_0.item()]
     obtained_params = np.array(lambdas + powers + bias_term)
     return obtained_params
@@ -65,24 +65,26 @@ def explore(n_variables=3, m_samples=1000, min_power=1, max_power=1, number_of_t
            divide_powers_by=1):
     cnt = time.perf_counter()
     symbolic_mse_list = []
-
+    n_recoveries = 0
     for i in range(number_of_tested_formulas):
         print(f"\n\n----------------------------Exploring new formula #{i + 1}----------------------------")
         coeffs, powers, b, X, y, true_params = generate_data(n_variables, m_samples, min_power, max_power + 1, divide_powers_by)
         cnt_iteration = time.perf_counter()
-        regressor, _ = NestedFormula.LearnFormula(X, y, optimizer_for_formula=torch.optim.Rprop, n_init=10)
+        regressor, _ = NestedFormula.LearnFormula(X, y, optimizer_for_formula=torch.optim.Rprop, n_init=4)
         print_time(cnt, cnt_iteration)
         print("ground truth and obtained formula")
         print_ground_truth(coeffs, powers, b)
         auxiliary_functions.PrintFormula(regressor)
 
-        obtained_params = get_params(regressor)
+        obtained_params = get_params(regressor, n_variables)
         symbolic_mse = mean_squared_error(true_params, obtained_params)
         symbolic_mse_list.append(symbolic_mse)
         print(f"MSE between formula parameters is {symbolic_mse}")
         if symbolic_mse < recovery_threshold:
             print("EXACT RECOVERY")
+            n_recoveries += 1
         else:
             print("FAILURE")
 
     print_results(symbolic_mse_list, number_of_tested_formulas)
+    return n_recoveries

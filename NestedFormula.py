@@ -39,7 +39,7 @@ class NestedFormula(nn.Module):
                 self.register_parameter("power_{}".format(i), new_power)
                 self.register_parameter("rational_lambda_{}".format(i), new_rational_lambda)
                 self.register_parameter("rational_power_{}".format(i), new_rational_power)
-            self.last_subformula = RecursiveFormula(self.depth - 1, self.num_variables)
+            self.last_subformula = NestedFormula(self.depth - 1, self.num_variables)
                                     
     def forward(self, x):
         """
@@ -191,8 +191,8 @@ class NestedFormula(nn.Module):
 def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.device("cpu"), n_init=10, max_iter=10000, 
              lr=0.01,
              depth=1, verbose=2, verbose_frequency=5000, 
-             max_epochs_without_improvement=300,
-            minimal_acceptable_improvement=1e-5, max_tol=1e-5, use_swa=False) -> RecursiveFormula:
+             max_epochs_without_improvement=1000,
+             minimal_acceptable_improvement=1e-6, max_tol=1e-5, use_swa=False):
     """
     Parameters:
         X: torch.tensor, shape (n_samples, n_features)
@@ -237,7 +237,7 @@ def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.devi
         if verbose > 0:
             print("  Initialization #{}".format(init + 1))
     #     torch.random.manual_seed(seed)
-        model = RecursiveFormula(depth, X.shape[1]).to(device)
+        model = NestedFormula(depth, X.shape[1]).to(device)
         
         criterion = nn.MSELoss()
         epochs_without_improvement = 0
