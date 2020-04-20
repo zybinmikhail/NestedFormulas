@@ -19,6 +19,7 @@ from gpytorch.kernels import CylindricalKernel, MaternKernel, ScaleKernel
 from botorch.optim.fit import fit_gpytorch_torch
 import traceback
 import numpy as np
+
 USE_SCIPY = False
 
 
@@ -119,7 +120,7 @@ def bo_step(X,
     attempts = 0
     while attempts < 10:
         try:
-            options = {'lr': 1e-1 / (1 + 10**attempts), 'maxiter': 100}
+            options = {'lr': 1e-1 / (1 + 10 ** attempts), 'maxiter': 100}
             # Create GP model
             mll, gp = initialize_model(X, y, noise=noise, bounds=bounds, GP=GP, state_dict=state_dict)
             if USE_SCIPY:

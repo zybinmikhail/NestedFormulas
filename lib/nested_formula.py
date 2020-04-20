@@ -1,8 +1,10 @@
 import copy
+
 import torch
 import torch.nn as nn
 import torchcontrib
 from auxiliary_functions import *
+
 
 class NestedFormula(nn.Module):
     """
@@ -13,7 +15,7 @@ class NestedFormula(nn.Module):
         num_variables
         subformulas - list of subformulas of smaller depth, which are used for computing
     """
-    
+
     def __init__(self, depth=0, num_variables=1):
         super(NestedFormula, self).__init__()
         self.depth = depth
@@ -40,7 +42,7 @@ class NestedFormula(nn.Module):
                 self.register_parameter("rational_lambda_{}".format(i), new_rational_lambda)
                 self.register_parameter("rational_power_{}".format(i), new_rational_power)
             self.last_subformula = NestedFormula(self.depth - 1, self.num_variables)
-                                    
+
     def forward(self, x):
         """
         Iterate over subformulas, recursively computing result using results of subformulas
@@ -48,18 +50,18 @@ class NestedFormula(nn.Module):
         # When depth is 0, we just return the corresponding number
         if self.depth == 0:
             return self.get_lambda(0).repeat(x.shape[0], 1).to(x.device)
-        
+
         ans = torch.zeros(x.shape[0], 1).to(x.device)
         for i in range(self.num_variables):
-            x_powered = torch.t(x[:, i]**self.get_power(i))
+            x_powered = torch.t(x[:, i] ** self.get_power(i))
             subformula_result = torch.ones((x.shape[0], 1)).to(x.device)
             # When depth is 1, we do not need to compute subformulas
             if self.depth != 1:
                 subformula_result = self.subformulas[i](x)
-            ans += self.get_lambda(i) * x_powered * subformula_result           
+            ans += self.get_lambda(i) * x_powered * subformula_result
         ans += self.last_subformula(x)
         return ans
-    
+
     # def to(self, device):
     #     self_state_dict = self.state_dict()
     #     for key, value in self_state_dict.items():
@@ -67,11 +69,11 @@ class NestedFormula(nn.Module):
     #     self.load_state_dict(self_state_dict)
     #     return self
     def cuda(self, device=None):
-        self = super().cuda(device)        
-        return self 
+        self = super().cuda(device)
+        return self
 
     def to(self, *args, **kwargs):
-        self = super().to(*args, **kwargs)    
+        self = super().to(*args, **kwargs)
         return self
 
     def simplify(self, X_val, y_val, max_denominator=10, inplace=False):
@@ -92,13 +94,13 @@ class NestedFormula(nn.Module):
             self, if inplace set to True
             simplified_version otherwise
         """
-        
-        simplified_version = copy.deepcopy(self)  
+
+        simplified_version = copy.deepcopy(self)
         simplified_state_dict = simplified_version.state_dict()
-        
+
         # Iterate over all parameters
         for key, value in self.state_dict().items():
-            if "rational" not in key: # We do not simplify rational parameters - they will be the result of simplification
+            if "rational" not in key:  # We do not simplify rational parameters - they will be the result of simplification
                 simplified_version_for_iteration = copy.deepcopy(simplified_version)
                 simplified_state_dict_for_iteration = simplified_version_for_iteration.state_dict()
                 y_predict = simplified_version(X_val)
@@ -108,59 +110,62 @@ class NestedFormula(nn.Module):
 
                 # Iterate over all possible denominators
                 for possible_denominator in range(1, max_denominator + 1):
-#                     print("trying denominator", possible_denominator)
+                    #                     print("trying denominator", possible_denominator)
                     simplified_parameter_numerator = torch.round(value * possible_denominator)
                     simplified_state_dict_for_iteration[key] = simplified_parameter_numerator / possible_denominator
                     simplified_version_for_iteration.load_state_dict(simplified_state_dict_for_iteration)
-                    descriptive_length_of_simplified_parameter = descriptive_length_of_fraction(simplified_parameter_numerator, possible_denominator)
-#                     print(simplified_parameter_numerator, possible_denominator)
+                    descriptive_length_of_simplified_parameter = descriptive_length_of_fraction(
+                        simplified_parameter_numerator, possible_denominator)
+                    #                     print(simplified_parameter_numerator, possible_denominator)
                     y_predict_simplified = simplified_version_for_iteration(X_val)
                     loss_of_simplified_model = nn.MSELoss()(y_val, y_predict_simplified)
-                    descriptive_length_of_loss_of_simplified_model = descriptive_length_of_real_number(loss_of_simplified_model)                
+                    descriptive_length_of_loss_of_simplified_model = descriptive_length_of_real_number(
+                        loss_of_simplified_model)
                     # If the descriptive length did not improve, revert the change.
-#                     print("descriptive_length_of_loss_of_simplified_model", descriptive_length_of_loss_of_simplified_model)
-#                     print("descriptive_length_of_simplified_parameter", descriptive_length_of_simplified_parameter)
-#                     print("descriptive_length_of_loss", descriptive_length_of_loss)
-#                     print("descriptive_length_of_existing_parameter", descriptive_length_of_existing_parameter)
+                    #                     print("descriptive_length_of_loss_of_simplified_model", descriptive_length_of_loss_of_simplified_model)
+                    #                     print("descriptive_length_of_simplified_parameter", descriptive_length_of_simplified_parameter)
+                    #                     print("descriptive_length_of_loss", descriptive_length_of_loss)
+                    #                     print("descriptive_length_of_existing_parameter", descriptive_length_of_existing_parameter)
 
                     if descriptive_length_of_loss_of_simplified_model + descriptive_length_of_simplified_parameter > descriptive_length_of_loss + descriptive_length_of_existing_parameter:
                         simplified_version_for_iteration.load_state_dict(simplified_state_dict)
                     else:
                         # If we are successful, we update everything
-                        simplified_state_dict[AddRationalInName(key)] = torch.tensor([simplified_parameter_numerator, possible_denominator])
+                        simplified_state_dict[AddRationalInName(key)] = torch.tensor(
+                            [simplified_parameter_numerator, possible_denominator])
                         simplified_version.load_state_dict(simplified_state_dict)
                         simplified_version_for_iteration = copy.deepcopy(simplified_version)
                         simplified_state_dict_for_iteration = simplified_version_for_iteration.state_dict()
 
                 simplified_state_dict = simplified_state_dict_for_iteration
                 simplified_version.load_state_dict(simplified_state_dict)
-        
+
         if inplace:
             self = copy.deepcopy(simplified_version)
         else:
-            return simplified_version      
-    
+            return simplified_version
+
     def get_lambda(self, i):
         return self.__getattr__('lambda_{}'.format(i))
-    
+
     def get_rational_lambda(self, i):
         return self.__getattr__('rational_lambda_{}'.format(i))
-    
+
     def get_power(self, i):
         return self.__getattr__('power_{}'.format(i))
-    
+
     def get_rational_power(self, i):
         return self.__getattr__('rational_power_{}'.format(i))
-    
+
     def __repr__(self):
         """
         Return tex-style string, recursively combining result from representation of subformulas
         """
         if self.depth == 0:
-            if self.get_rational_lambda(0)[1] > 0: # if it is equal to 0, it means that there is no rational value
-                return FormFractionRepresentation(self.get_rational_lambda(0))            
+            if self.get_rational_lambda(0)[1] > 0:  # if it is equal to 0, it means that there is no rational value
+                return FormFractionRepresentation(self.get_rational_lambda(0))
             return FormReal(self.get_lambda(0))
-        
+
         ans = ["\left("]
         for i in range(self.num_variables):
             # First we add lambda
@@ -169,30 +174,30 @@ class NestedFormula(nn.Module):
             if self.get_rational_lambda(i)[1] > 0:
                 ans.append(FormFractionRepresentation(self.get_rational_lambda(i)))
             else:
-                ans.append(FormReal(self.get_lambda(i)))   
-            # Then we add variable and its power
+                ans.append(FormReal(self.get_lambda(i)))
+                # Then we add variable and its power
             ans.append("x_{}^".format(i + 1) + "{")
             if self.get_rational_power(i)[1] > 0:
                 ans.append(FormFractionRepresentation(self.get_rational_power(i)))
             else:
-                ans.append(FormReal(self.get_power(i)))  
-            ans += "}"    
+                ans.append(FormReal(self.get_power(i)))
+            ans += "}"
             # Then we add the corresponding subformula
             if self.depth != 1:
                 ans.append(str(self.subformulas[i]))
-        if self.last_subformula.get_lambda(0) > 0:        
+        if self.last_subformula.get_lambda(0) > 0:
             ans.append(" + ")
         ans.append(str(self.last_subformula))
         ans.append(r"\right)")
         ans = ''.join(ans)
         return ans
-    
-    
-def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.device("cpu"), n_init=10, max_iter=10000, 
-             lr=0.01,
-             depth=1, verbose=2, verbose_frequency=5000, 
-             max_epochs_without_improvement=1000,
-             minimal_acceptable_improvement=1e-6, max_tol=1e-5, use_swa=False):
+
+
+def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.device("cpu"), n_init=10, max_iter=10000,
+                 lr=0.01,
+                 depth=1, verbose=2, verbose_frequency=5000,
+                 max_epochs_without_improvement=1000,
+                 minimal_acceptable_improvement=1e-6, max_tol=1e-5, use_swa=False):
     """
     Parameters:
         X: torch.tensor, shape (n_samples, n_features)
@@ -227,29 +232,29 @@ def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.devi
         best_losses: list of float
         	loss values for best initialization
     """
-    
+
     best_formula = NestedFormula(depth, X.shape[1]).to(device)
     best_loss = 1e20
     best_losses = []
-    
+
     for init in range(n_init):
         losses = []
         if verbose > 0:
             print("  Initialization #{}".format(init + 1))
-    #     torch.random.manual_seed(seed)
+        #     torch.random.manual_seed(seed)
         model = NestedFormula(depth, X.shape[1]).to(device)
-        
+
         criterion = nn.MSELoss()
         epochs_without_improvement = 0
         epoch = 0
         output = model(X)
-        previous_loss = criterion(output, y).item() 
-        
+        previous_loss = criterion(output, y).item()
+
         if use_swa:
-          	base_optimizer = torch.optim.SGD(model.parameters(), lr)        
-          	optimizer = torchcontrib.optim.SWA(base_optimizer, swa_start=10, swa_freq=5, swa_lr=0.05)
+            base_optimizer = torch.optim.SGD(model.parameters(), lr)
+            optimizer = torchcontrib.optim.SWA(base_optimizer, swa_start=10, swa_freq=5, swa_lr=0.05)
         else:
-          	optimizer = optimizer_for_formula(model.parameters(), lr)
+            optimizer = optimizer_for_formula(model.parameters(), lr)
         optimizer.zero_grad()
 
         while epoch < max_iter and epochs_without_improvement < max_epochs_without_improvement:
@@ -260,8 +265,8 @@ def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.devi
             loss.backward()
             if verbose == 2 and (epoch + 1) % verbose_frequency == 0:
                 print("    Epoch {}, current loss {:.3}, current formula ".format(epoch + 1, loss.item()), end='')
-                PrintFormula(model, "fast")       
-            optimizer.step()  
+                PrintFormula(model, "fast")
+            optimizer.step()
             epoch += 1
             if torch.abs(previous_loss - loss) < minimal_acceptable_improvement:
                 epochs_without_improvement += 1
@@ -278,9 +283,9 @@ def LearnFormula(X, y, optimizer_for_formula=torch.optim.Adam, device=torch.devi
         if verbose > 0:
             print("  Finished run #{}, loss {}, best loss {}".format(init + 1, loss, best_loss))
         if use_swa:
-	        optimizer.swap_swa_sgd()
+            optimizer.swap_swa_sgd()
         if loss < max_tol:
             print(f'loss is smaller than {max_tol}, terminating learning process')
             break
-        
+
     return best_formula, best_losses

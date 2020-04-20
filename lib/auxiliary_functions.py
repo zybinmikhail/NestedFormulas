@@ -1,12 +1,13 @@
 import torch
-from IPython.core.display import display, HTML, Math
+from IPython.core.display import display, Math
+
 
 def descriptive_length_of_fraction(numerator, denominator):
     return torch.log2((1 + torch.abs(torch.tensor(denominator))) * torch.abs(torch.tensor(numerator)))
 
 
 def logplus(number):
-    return torch.log2(1 + number**2) / 2
+    return torch.log2(1 + number ** 2) / 2
 
 
 def descriptive_length_of_real_number(real_number, precision_floor=1e-8):
@@ -34,14 +35,15 @@ def AddRationalInName(name: str) -> str:
 def info(formula):
     print("depth: {}, number of variables: {}, total parameters: {}".format(
         formula.depth, formula.num_variables, len(formula.parameters)))
-    
+
+
 def PrintFormula(formula, mode="slow"):
-#     info(network)
+    #     info(network)
     if mode == "slow":
-        display(Math(str(formula)))   
+        display(Math(str(formula)))
     else:
         print(formula)
 
-        
+
 def remove_zero_minutes(minutes):
-    return str(int(minutes)) + ' minutes ' if minutes > 0 else ''        
+    return str(int(minutes)) + ' minutes ' if minutes > 0 else ''
