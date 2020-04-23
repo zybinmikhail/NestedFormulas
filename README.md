@@ -1,4 +1,6 @@
 # NestedFormula
-Recover functional dependencies from data using computational graph and simplification.
 
+This is a repository for the Graduate Work of Mikhail Zybin.
+
+For description, please visit https://www.overleaf.com/read/zhrdyzsytpdb
 

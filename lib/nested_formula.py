@@ -16,11 +16,21 @@ class NestedFormula(nn.Module):
         subformulas - list of subformulas of smaller depth, which are used for computing
     """
 
-    def __init__(self, depth=0, num_variables=1):
+    def __init__(self, depth=0, num_variables=1, functions=["tan", "sin", "cos", "ln", "atan", "asin", "acos"]):
         super(NestedFormula, self).__init__()
         self.depth = depth
         self.num_variables = num_variables
         self.subformulas = nn.ModuleList()
+        self.map_names_to_functions = {
+            "tan": torch.tan,
+            "sin": torch.sin,
+            "cos": torch.cos,
+            "atan": torch.atan,
+            "asin": torch.asin,
+            "acos": torch.acos,
+            "ln": torch.log
+        }
+        self.functions = functions
         # When depth is zero, formula is just a real number
         if depth == 0:
             new_lambda = nn.Parameter((2 * torch.randn((1, 1)))).requires_grad_(True)
@@ -31,7 +41,7 @@ class NestedFormula(nn.Module):
             for i in range(self.num_variables):
                 # When depth is 1, we do not need to create subformulas, since they would be just real numbers
                 if self.depth != 1:
-                    subformula = RecursiveFormula(self.depth - 1, self.num_variables)
+                    subformula = NestedFormula(self.depth - 1, self.num_variables)
                     self.subformulas.append(subformula)
                 new_lambda = nn.Parameter((2 * torch.randn((1, 1)))).requires_grad_(True)
                 new_power = nn.Parameter((2 * torch.randn((1, 1)))).requires_grad_(True)
@@ -41,6 +51,11 @@ class NestedFormula(nn.Module):
                 self.register_parameter("power_{}".format(i), new_power)
                 self.register_parameter("rational_lambda_{}".format(i), new_rational_lambda)
                 self.register_parameter("rational_power_{}".format(i), new_rational_power)
+
+                for function in functions:
+                    new_lambda = nn.Parameter((2 * torch.randn((1, 1)))).requires_grad_(True)
+                    self.register_parameter("lambda_{}".format(function), new_lambda)
+
             self.last_subformula = NestedFormula(self.depth - 1, self.num_variables)
 
     def forward(self, x):
@@ -59,6 +74,9 @@ class NestedFormula(nn.Module):
             if self.depth != 1:
                 subformula_result = self.subformulas[i](x)
             ans += self.get_lambda(i) * x_powered * subformula_result
+
+            # Here I should modify my code in order to make it possible to use sine cosine etc.
+
         ans += self.last_subformula(x)
         return ans
 
